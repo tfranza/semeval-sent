@@ -7,7 +7,7 @@ class RawTextPreprocessor():
     def __init__(self, sentences):
         self.sentences = sentences      # list of strings
 
-    def apply_steps(self, steps, file_path):
+    def apply_steps(self, steps):
         num_steps = len(steps)
         print('begin preprocessing...')
         for i, step in enumerate(steps):
@@ -29,7 +29,6 @@ class RawTextPreprocessor():
             elif step == '--prep-misspellings':
                 print('   + step %d/%d >> applying misspellings correction... ' % (i+1,num_steps))
                 self.sentences = self.apply_misspellings_correction(self.sentences)
-        self.save_to(file_path)
         print('end preprocessing...\n')
         return self
 

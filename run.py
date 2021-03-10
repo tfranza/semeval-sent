@@ -15,6 +15,7 @@ Options:
     --seed=<int>                       seed                                         [default: 0]
 
     --dont-load-prep                   not loading previously prep text
+    --dont-save-prep                   not saving the current prep text
     --prep-verbs=<int>                 raw text verbs regularization                [default: 0]
     --prep-lowering=<int>              raw text lowering                            [default: 1]
     --prep-emoticon-emojis=<int>       raw text emoticons and emoji substitution    [default: 2]
@@ -102,6 +103,7 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 		valid_loss = evaluate_fold(model, valid_dl)
 		epoch_valid_losses.append(valid_loss)
 		if epoch_valid_losses[-1] > epoch_valid_losses[-2-patience]:
+			print('     + increasing patience from %d to %d' % (patience, patience+1))
 			patience += 1
 			if patience == args['--patience-limit']:
 				print('     + patience limit hit!')
@@ -115,6 +117,7 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 				print('     + max amount of decays hit!')
 				break
 		else:
+			print('    + resetting patience from %d to 0' % (patience))
 			patience = 0
 			model.save(args['--model-save-to'] +'_'+str(fold_id+1))
 			torch.save(optimizer.state_dict(), args['--model-save-to'] +'_'+str(fold_id+1) + '.optim')
@@ -188,7 +191,7 @@ def run(args, device):
 #		break
 
 	
-def predict(model, args, pretrained):
+def predict(args, model, pretrained):
 	dev_set = pd.read_csv(args['--dev-src'], delimiter='\t')
 	_, dev_embeddings, dev_labels = preprocess(args, dev_set, pretrained, train_flag=False)
 

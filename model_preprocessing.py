@@ -31,7 +31,9 @@ def extract_features(args, data, dataset_name, train_flag=True):
 					).items()
 				))
 				steps = [steps_dict[i] for i in range(len(steps_dict))]		# list containing ordered prep steps
-				preprocessor.apply_steps(steps, args['--prep-text-save-to'])
+				preprocessor.apply_steps(steps)
+				if not args['--dont-save-prep']:
+					preprocessor.save_to(args['--prep-text-save-to'])
 			else:
 				preprocessor.load_from(args['--prep-text-save-to'])
 		features['sentences'] = preprocessor.get_sentences(tokenized=True)
@@ -108,12 +110,12 @@ def generate_kfolds(args, dataset, device):
 		train_features = torch.row_stack([fs for j,fs in enumerate(fold_features) if j!=i])
 		train_labels = torch.row_stack([ls for j,ls in enumerate(fold_labels) if j!=i])
 		train_dataset = data.TensorDataset(train_features.to(device), train_labels.to(device))
-		train_dataloader = data.DataLoader(train_dataset, batch_size=int(args['--batch-size']), shuffle=True, pin_memory=True)
+		train_dataloader = data.DataLoader(train_dataset, batch_size=int(args['--batch-size']), shuffle=True)
 		
 		valid_features = fold_features[i]
 		valid_labels = fold_labels[i]
 		valid_dataset = data.TensorDataset(valid_features.to(device), valid_labels.to(device))
-		valid_dataloader = data.DataLoader(valid_dataset, batch_size=int(args['--batch-size']), shuffle=True, pin_memory=True)
+		valid_dataloader = data.DataLoader(valid_dataset, batch_size=int(args['--batch-size']), shuffle=True)
 
 		fold_trainval_dataloaders.append( (train_dataloader, valid_dataloader) )
 
