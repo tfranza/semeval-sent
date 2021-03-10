@@ -23,9 +23,9 @@ Options:
     --prep-elongations=<int>           raw text elongations removal                 [default: 4]
     --prep-misspellings=<int>          raw text misspellings correction             [default: -1]
 
-    --embedding-type=<string>          embedding type among {w2v,glv,brt,rbt}       [default: w2v]
+    --embedding-type=<string>          embedding type among {w2v,glv,brt,rbt}       [default: glv]
     --batch-size=<int>                 batch size                                   [default: 256]
-    --hidden-size=<int>                hidden size                                  [default: 1000]
+    --hidden-size=<int>                hidden size                                  [default: 128]
     --num-classes=<int>                number of classes                            [default: 4]
 
     --num-folds=<int>                  number of folds                              [default: 4]
@@ -34,7 +34,7 @@ Options:
     --lr=<float>                       learning rate                                [default: 0.1]
     --lr-decay=<float>                 learning rate decay                          [default: 1]
     --max-decays=<int>                 max number of decays                         [default: 20]
-    --max-epoch=<int>                  max number of epochs                         [default: 1000]
+    --max-epoch=<int>                  max number of epochs                         [default: 70]
     --patience-limit=<int>             value for early stopping                     [default: 5]
 """
 
@@ -95,13 +95,13 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 			# pass gradients back into the model
 			optimizer.step()
 		epoch_train_losses.append(np.mean(batch_losses))
-		print('   fold %d > epoch %d, avg.batchloss %.4f, avg.loss %.4f, speed %.2f samples/sec, time elapsed %.2f secs' 
-			% (fold_id+1, epoch+1, np.mean(batch_losses), np.mean(batch_losses)/int(args['--batch-size']), cum_batch_samples/(time.time()-epoch_time), time.time()-begin_time), file=sys.stderr)
+		valid_loss = evaluate_fold(model, valid_dl)
+		epoch_valid_losses.append(valid_loss)
+		print('   fold %d > epoch %d, avg.train.batchloss %.4f, avg.train.loss %.4f, avg.valid.batchloss %.4f, speed %.2f samples/sec, time elapsed %.2f secs' 
+			% (fold_id+1, epoch+1, np.mean(batch_losses), np.mean(batch_losses)/int(args['--batch-size']), valid_loss, cum_batch_samples/(time.time()-epoch_time), time.time()-begin_time), file=sys.stderr)
 		##################################################
 
 		########### check for early stopping #############
-		valid_loss = evaluate_fold(model, valid_dl)
-		epoch_valid_losses.append(valid_loss)
 		if epoch_valid_losses[-1] > epoch_valid_losses[-2-patience]:
 			print('     + increasing patience from %d to %d' % (patience, patience+1))
 			patience += 1
