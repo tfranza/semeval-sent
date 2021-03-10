@@ -3,7 +3,7 @@
 
 """
 Usage:
-	train.py train --train-src=<file> --dev-src=<file>  [options]
+	train.py train [options]
 
 Options:
     -h --help                          show this screen.
