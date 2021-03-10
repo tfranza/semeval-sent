@@ -105,7 +105,7 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 		if epoch_valid_losses[-1] > epoch_valid_losses[-2-patience]:
 			print('     + increasing patience from %d to %d' % (patience, patience+1))
 			patience += 1
-			if patience == args['--patience-limit']:
+			if patience == int(args['--patience-limit']):
 				print('     + patience limit hit!')
 				break
 			if num_decays < int(args['--max-decays']):
@@ -117,8 +117,9 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 				print('     + max amount of decays hit!')
 				break
 		else:
-			print('    + resetting patience from %d to 0' % (patience))
-			patience = 0
+			if patience > 0:
+				print('    + resetting patience from %d to 0' % (patience))
+				patience = 0
 			model.save(args['--model-save-to'] +'_'+str(fold_id+1))
 			torch.save(optimizer.state_dict(), args['--model-save-to'] +'_'+str(fold_id+1) + '.optim')
 		##################################################
