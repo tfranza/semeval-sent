@@ -3,7 +3,7 @@
 if [ "$1" = "train_tiny" ]; then
   	python run.py train --embedding-type='w2v' --max-epoch=5 --single-fold
 elif [ "$1" = "train" ]; then
-  	python run.py train --embedding-type='w2v' --max-epoch=50 --single-fold
+  	python run.py train --embedding-type='glv' --max-epoch=50 --single-fold
 elif [ "$1" = "train_noprep" ]; then
   	python run.py train --embedding-type='glv' --max-epoch=50 --single-fold --prep-verbs=-1 --prep-emoticon-emojis=-1 --prep-abbreviations=-1 --prep-elongations=-1 --prep-lowering=0 --dont-save-prep --dont-load-prep
 #elif [ "$1" = "train_local" ]; then

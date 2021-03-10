@@ -31,7 +31,7 @@ Options:
     --num-folds=<int>                  number of folds                              [default: 4]
     --single-fold                      compute only the first fold
 
-    --lr=<float>                       learning rate                                [default: 0.1]
+    --lr=<float>                       learning rate                                [default: 0.001]
     --lr-decay=<float>                 learning rate decay                          [default: 1]
     --max-decays=<int>                 max number of decays                         [default: 20]
     --max-epoch=<int>                  max number of epochs                         [default: 70]
