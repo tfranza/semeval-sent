@@ -3,7 +3,8 @@
 
 """
 Usage:
-	train.py train [options]
+	run.py train [options]
+	run.py predict [options]
 
 Options:
     -h --help                          show this screen.
@@ -27,6 +28,7 @@ Options:
     --batch-size=<int>                 batch size                                   [default: 256]
     --hidden-size=<int>                hidden size                                  [default: 128]
     --num-classes=<int>                number of classes                            [default: 4]
+    --num-layers=<int>                 number of BiLSTMs layers                     [default: 2]
 
     --num-folds=<int>                  number of folds                              [default: 4]
     --single-fold                      compute only the first fold
@@ -58,7 +60,8 @@ def create_model(args, pretrained):
 		pretrained, 
 		pretrained.shape[1], 
 		int(args['--hidden-size']), 
-		int(args['--num-classes'])
+		int(args['--num-classes']),
+		int(args['--num-layers'])
 	)
 	return model
 
@@ -97,7 +100,7 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 		epoch_train_losses.append(np.mean(batch_losses))
 		valid_loss = evaluate_fold(model, valid_dl)
 		epoch_valid_losses.append(valid_loss)
-		print('   fold %d > epoch %d, avg.train.batchloss %.4f, avg.train.loss %.4f, avg.valid.batchloss %.4f, speed %.2f samples/sec, time elapsed %.2f secs' 
+		print('   fold %d > epoch %d, avg.train.b_loss %.4f, avg.train.loss %.4f, avg.valid.b_loss %.4f, speed %.2f samples/sec, time elapsed %.2f secs' 
 			% (fold_id+1, epoch+1, np.mean(batch_losses), np.mean(batch_losses)/int(args['--batch-size']), valid_loss, cum_batch_samples/(time.time()-epoch_time), time.time()-begin_time), file=sys.stderr)
 		##################################################
 
@@ -108,6 +111,7 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 			if patience == int(args['--patience-limit']):
 				print('     + patience limit hit!')
 				break
+			####### decaying learning rate whenever patience is increased 
 			if num_decays < int(args['--max-decays']):
 				prev_lr = optimizer.param_groups[0]['lr']
 				lr_scheduler.step()
@@ -116,6 +120,7 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 			else:
 				print('     + max amount of decays hit!')
 				break
+			#############################################################
 		else:
 			if patience > 0:
 				print('    + resetting patience from %d to 0' % (patience))
@@ -162,49 +167,55 @@ def run(args, device):
 	kfold_dataloaders = generate_kfolds(args, (embeddings,labels), device)
 	
 	begin_time = time.time()
-	val_losses = []
 	model = create_model(args, pretrained).to(device)
 	print(model,'\n')
-	for fold_id, (train_batches, valid_batches) in enumerate(kfold_dataloaders):
-		val_avg_batchloss = train_val_fold(args, model, (train_batches, valid_batches), begin_time, fold_id)
-		val_losses.append(val_avg_batchloss)
+	for fold_id, train_valid_batches in enumerate(kfold_dataloaders):
+		train_val_fold(
+			args, 
+			create_model(args, pretrained).to(device), 
+			train_valid_batches, 
+			begin_time, 
+			fold_id
+		)
+
+def compute_single_fold_metrics(model, X_val, y_val):
+	with torch.no_grad():
+		prob_pred = model.forward(X_val)
+		y_pred = torch.argmax(prob_pred, dim=1).numpy() 
+	print(y_val.shape)
+	print(y_pred.shape)
+	print(y_val[0])
+	print(y_predl[0])
+
+	precision = 0
+	recall = 0
+	f1 = 0
+
+def predict(args):
+	dev_set = pd.read_csv(args['--dev-src'], delimiter='\t')
+	
+	fold_models = []
+	for k in range(int(args['--num-folds'])):
+		fold_models.append(FirstNeuralNetwork.load(args['--model-save-to']+'_'+str(k+1)))
 		if args['--single-fold']:
 			break
-		else:
-			model = create_model(args, pretrained).to(device)
 	
-	idx_best_model = val_losses.index(max(val_losses))+1
-	best_model = create_model(args, pretrained).to(device).load(args['--model-save-to']+'_'+str(idx_best_model))
-	print('')
-
-	predict(args, best_model, pretrained)
-
-#	prev_loss = (min(hist_losses) if len(hist_losses)>0 else epoch_loss)
-
-	# if increase in loss is greater  than 0.01% break
-#	dff = prev_loss - epoch_loss
-#	if dff < 0 and prev_loss < (0.997*epoch_loss):
-#		print("Breaking with loss ", epoch_loss)
-#		break
-
-#	if len(hist_losses) > int(args['--max-epoch']):
-#		print("Max epochs reached with loss ", epoch_loss)
-#		break
-
-	
-def predict(args, model, pretrained):
-	dev_set = pd.read_csv(args['--dev-src'], delimiter='\t')
-	_, dev_embeddings, dev_labels = preprocess(args, dev_set, pretrained, train_flag=False)
-
+	_, dev_embeddings, dev_labels = preprocess(args, dev_set, fold_models[0], train_flag=False)
 	# converting inputs to tensors
 	dev_embeddings = list(map(lambda sent: torch.LongTensor(sent), dev_embeddings))
 	dev_embeddings = torch.stack(dev_embeddings)
+	print(type(dev_labels))
 	dev_labels = torch.LongTensor(dev_labels)
+#	y_true = dev_labels.numpy()
 
-	with torch.no_grad():
-		prob_pred = model.forward(dev_embeddings)
-	y_pred = torch.argmax(prob_pred, dim=1).numpy()
-	y_true = dev_labels.numpy()
+	compute_single_fold_metrics(fold_models[0], dev_embeddings, dev_labels)
+
+#	y_preds = [] 
+#	for model in fold_models:
+#		with torch.no_grad():
+#			prob_pred = model.forward(dev_embeddings)
+#			y_pred
+#			y_preds.append(torch.argmax(prob_pred, dim=1).numpy())
 
 	from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 
@@ -212,45 +223,45 @@ def predict(args, model, pretrained):
 	macro_recall = 0 
 	macro_f1 = 0
 	for id, c in enumerate(['others', 'happy', 'sad', 'angry']):
-	    y_true_c = (y_true==id)+[0]*len(y_true)
-	    y_pred_c = (y_pred==id)+[0]*len(y_pred)
-	    prec_c = precision_score(y_true_c, y_pred_c, zero_division=0)
-	    rec_c = recall_score(y_true_c, y_pred_c, zero_division=0)
-	    f1_c = f1_score(y_true_c, y_pred_c, zero_division=0)
-	    if id!=0:
-	    	macro_precision += prec_c
-	    	macro_recall += rec_c 
-	    print('P: ', np.round(prec_c, decimals=4))
-	    print('R: ', np.round(rec_c, decimals=4))
-	    print('F1: ', np.round(f1_c, decimals=4))
-	    print(confusion_matrix(y_true_c, y_pred_c))
-	    print()
+		y_true_c = (y_true==id)+[0]*len(y_true)
+		y_pred_c = (y_pred==id)+[0]*len(y_pred)
+		prec_c = precision_score(y_true_c, y_pred_c, zero_division=0)
+		rec_c = recall_score(y_true_c, y_pred_c, zero_division=0)
+		f1_c = f1_score(y_true_c, y_pred_c, zero_division=0)
+		if id!=0:
+			macro_precision += prec_c
+			macro_recall += rec_c 
+		print('P: ', np.round(prec_c, decimals=4))
+		print('R: ', np.round(rec_c, decimals=4))
+		print('F1: ', np.round(f1_c, decimals=4))
+		print(confusion_matrix(y_true_c, y_pred_c))
+		print()
 	macro_precision /= 3
 	macro_recall /= 3
 	macro_f1 = (2*macro_precision*macro_recall)/(macro_precision+macro_recall)
 	print('Macro-Avg:', np.round(macro_f1,decimals=4))
 
 def main():
-    args = docopt(__doc__)
-    print(args,'\n')
-    # Check pytorch version
-    assert(torch.__version__ >= "1.0.0"), "Please update your installation of PyTorch. You have {} and you should have version 1.0.0".format(torch.__version__)
+	args = docopt(__doc__)
+	print(args,'\n')
+	# Check pytorch version
+	assert(torch.__version__ >= "1.0.0"), "Please update your installation of PyTorch. You have {} and you should have version 1.0.0".format(torch.__version__)
 
-    # seed the random number generators
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    seed = int(args['--seed'])
-    torch.manual_seed(seed)
-    if device=='cuda':
-        torch.cuda.manual_seed(seed)
-    np.random.seed(seed * 13 // 7)
+	# seed the random number generators
+	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+	seed = int(args['--seed'])
+	torch.manual_seed(seed)
+	if device=='cuda':
+		torch.cuda.manual_seed(seed)
+	np.random.seed(seed * 13 // 7)
 
-    if args['train']:
-        run(args, device)
-    #elif args['predict']:
-    #    predict(args)
-    else:
-        raise RuntimeError('invalid run mode')
+	if args['train']:
+		run(args, device)
+	elif args['predict']:
+		predict(args)
+	else:
+		raise RuntimeError('invalid run mode')
 
 if __name__ == '__main__':
-    main()
+	main()
 

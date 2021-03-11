@@ -118,6 +118,8 @@ def generate_kfolds(args, dataset, device):
 		valid_dataloader = data.DataLoader(valid_dataset, batch_size=int(args['--batch-size']), shuffle=True)
 
 		fold_trainval_dataloaders.append( (train_dataloader, valid_dataloader) )
+		if args['--single-fold']:
+			break
 
 	return fold_trainval_dataloaders
 

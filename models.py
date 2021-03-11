@@ -3,15 +3,16 @@ import torch
 import torch.nn as nn
 
 class FirstNeuralNetwork(nn.Module):
-    def __init__(self, embeddings, embedding_size, hidden_size, num_classes):
+    def __init__(self, embeddings, embedding_size, hidden_size, num_classes, num_layers):
         super(FirstNeuralNetwork, self).__init__()
         self.embeddings = embeddings
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
         self.num_classes = num_classes
+        self.num_layers = num_layers
 
         self.embedding_layer = nn.Embedding.from_pretrained(embeddings)
-        self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers=2, batch_first=True, bidirectional=True)
+        self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
         self.dropout = nn.Dropout(p=0.2)
         self.relu = nn.ReLU()
         self.fc = nn.Linear(hidden_size*2, num_classes)
@@ -53,7 +54,8 @@ class FirstNeuralNetwork(nn.Module):
                 embeddings = self.embeddings,
                 embedding_size = self.embedding_size,
                 hidden_size = self.hidden_size, 
-                num_classes = self.num_classes
+                num_classes = self.num_classes,
+                num_layers = self.num_layers
             ),
             'state_dict': self.state_dict()
         }
