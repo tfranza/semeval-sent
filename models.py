@@ -14,7 +14,7 @@ class FirstNeuralNetwork(nn.Module):
         self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers=2, batch_first=True, bidirectional=True)
         self.dropout = nn.Dropout(p=0.2)
         self.relu = nn.ReLU()
-        self.fc = nn.Linear(hidden_size, num_classes)
+        self.fc = nn.Linear(hidden_size*2, num_classes)
         
         self.loss_fn= nn.CrossEntropyLoss(reduction='sum')
         
