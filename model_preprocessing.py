@@ -7,11 +7,11 @@ import torch.utils.data as data
 from utils.raw_text_preprocessing import RawTextPreprocessor
 
 #############################################################################################
-def preprocess(args, data, pretrained=None, train_flag=True):
+def preprocess(args, data, train_flag=True):
 	if 'semeval2019-task3' in args['--train-src']:
 		tokenized_sentences = extract_features(args, data, 'semeval2019-task3', train_flag)['sentences']
 		labels = extract_labels(data, 'semeval2019-task3')
-		pretrained, input_embeddings = generate_embeddings(args, tokenized_sentences, pretrained)
+		pretrained, input_embeddings = generate_embeddings(args, tokenized_sentences)
 		return pretrained, input_embeddings, labels
 
 #############################################################################################
@@ -45,7 +45,7 @@ def extract_labels(data, dataset_name):
 		labels = data.label.map({'others':[1,0,0,0], 'happy':[0,1,0,0], 'sad':[0,0,1,0], 'angry':[0,0,0,1]})
 	return labels
 
-def generate_embeddings(args, sentencelist, pretrained):
+def generate_embeddings(args, sentencelist):
 	if args['--embedding-type']=='w2v':
 		print('Loading word2vec model... \n')
 		model = gensim.models.Word2Vec(sentences = sentencelist)
@@ -59,10 +59,10 @@ def generate_embeddings(args, sentencelist, pretrained):
 	vocab = model.wv.vocab
 
 	input_size = vectors.shape[1]
-	if pretrained==None:
-		np.random.seed(input_size)
-		pretrained = np.insert(vectors, 0, np.random.uniform(vectors.min(),vectors.max(),input_size), axis=0)
-		pretrained = np.insert(pretrained, 0, np.zeros(input_size), axis=0)
+	
+	np.random.seed(input_size)
+	pretrained = np.insert(vectors, 0, np.random.uniform(vectors.min(),vectors.max(),input_size), axis=0)
+	pretrained = np.insert(pretrained, 0, np.zeros(input_size), axis=0)
 
 	# substituing words with ids
 	word_to_idx = {word:idx for idx,word in enumerate(vocab, start=2)}

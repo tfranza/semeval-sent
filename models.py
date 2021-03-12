@@ -2,6 +2,16 @@ import sys
 import torch
 import torch.nn as nn
 
+def create_model(args, pretrained):
+    model = FirstNeuralNetwork(
+        pretrained, 
+        pretrained.shape[1], 
+        int(args['--hidden-size']), 
+        int(args['--num-classes']),
+        int(args['--num-layers'])
+    )
+    return model
+
 class FirstNeuralNetwork(nn.Module):
     def __init__(self, embeddings, embedding_size, hidden_size, num_classes, num_layers):
         super(FirstNeuralNetwork, self).__init__()
