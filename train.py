@@ -98,7 +98,7 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 			if patience > 0:
 				print('    + resetting patience from %d to 0' % (patience))
 				patience = 0
-			model.save(args['--model-save-to'] +'_'+str(fold_id+1))
+			model.save(args['--model-save-to'] +'_'+str(fold_id+1), epoch_train_losses, epoch_valid_losses)
 			torch.save(optimizer.state_dict(), args['--model-save-to'] +'_'+str(fold_id+1) + '.optim')
 		##################################################
 
@@ -109,8 +109,3 @@ def train_val_fold(args, model, dataloaders, begin_time, fold_id):
 		else:
 			epoch += 1
 		##################################################
-
-	best_val_avg_batchloss = epoch_valid_losses[-1-patience]
-	print('   validation > avg.batchloss %.4f, avg.loss %.4f' % (best_val_avg_batchloss, best_val_avg_batchloss/int(args['--batch-size'])), file=sys.stderr)
-	return best_val_avg_batchloss
-

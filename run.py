@@ -24,7 +24,7 @@ Options:
     --prep-elongations=<int>           raw text elongations removal                 [default: 4]
     --prep-misspellings=<int>          raw text misspellings correction             [default: -1]
 
-    --embedding-type=<string>          embedding type among {w2v,glv,brt,rbt}       [default: glv]
+    --embedding-type=<string>          embedding type among {w2v,glv,brt,rbt}       [default: glv100]
     --batch-size=<int>                 batch size                                   [default: 256]
     --hidden-size=<int>                hidden size                                  [default: 128]
     --num-classes=<int>                number of classes                            [default: 4]

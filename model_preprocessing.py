@@ -1,6 +1,7 @@
 import gensim
 import gensim.downloader as api
 import numpy as np
+import re
 import torch
 import torch.utils.data as data
 
@@ -19,24 +20,27 @@ def extract_features(args, data, dataset_name, train_flag=True):
 	features = dict()
 	preprocessor = None 
 	if dataset_name=='semeval2019-task3':
-		sentences = data.turn1 + ' ' + data.turn2 + ' ' + data.turn3
-		preprocessor = RawTextPreprocessor(sentences)
-		if train_flag:
-			if (args['--dont-load-prep']):
-				steps_dict = dict(map(reversed, 					 # dict containing (key: seq order, value: prep step)
-					dict( 							# dict containing (key: prep step, value: seq order)
-						(k,int(args[k])) 
-						for k in ['--prep-verbs','--prep-lowering','--prep-emoticon-emojis','--prep-abbreviations','--prep-elongations','--prep-misspellings'] 
-						if args[k] != '-1'
-					).items()
-				))
-				steps = [steps_dict[i] for i in range(len(steps_dict))]		# list containing ordered prep steps
-				preprocessor.apply_steps(steps)
-				if not args['--dont-save-prep']:
-					preprocessor.save_to(args['--prep-text-save-to'])
-			else:
-				preprocessor.load_from(args['--prep-text-save-to'])
-		features['sentences'] = preprocessor.get_sentences(tokenized=True)
+		sentences = data.turn1 + ' <eos> ' + data.turn2 + ' <eos> ' + data.turn3
+		sentences = [simple_preprocessing(sentence) for sentence in sentences]
+		#preprocessor = RawTextPreprocessor(sentences)
+#		if train_flag:
+#			if (args['--dont-load-prep']):
+#				steps_dict = dict(map(reversed, 					 # dict containing (key: seq order, value: prep step)
+#					dict( 							# dict containing (key: prep step, value: seq order)
+#						(k,int(args[k])) 
+#						for k in ['--prep-verbs','--prep-lowering','--prep-emoticon-emojis','--prep-abbreviations','--prep-elongations','--prep-misspellings'] 
+#						if args[k] != '-1'
+#					).items()
+#				))
+#				steps = [steps_dict[i] for i in range(len(steps_dict))]		# list containing ordered prep steps
+#				preprocessor.apply_steps(steps)
+#				if not args['--dont-save-prep']:
+#					preprocessor.save_to(args['--prep-text-save-to'])
+#			else:
+#				preprocessor.load_from(args['--prep-text-save-to'])
+		#features['sentences'] = preprocessor.get_sentences(tokenized=True)
+		features['sentences'] = [sentence.split(" ") for sentence in sentences]
+
 	return features
 
 def extract_labels(data, dataset_name):
@@ -49,26 +53,55 @@ def generate_embeddings(args, sentencelist):
 	if args['--embedding-type']=='w2v':
 		print('Loading word2vec model... \n')
 		model = gensim.models.Word2Vec(sentences = sentencelist)
-	elif args['--embedding-type']=='glv':
+	elif args['--embedding-type']=='glv100':
+		print('Loading GloVe-wiki-gigaword-100 model... \n')
+		model = api.load('glove-wiki-gigaword-100')
+	elif args['--embedding-type']=='glv300':
 		print('Loading GloVe-wiki-gigaword-300 model... \n')
 		model = api.load('glove-wiki-gigaword-300')
 	elif args['--embedding-type']=='fasttext':
 		print('Loading fasttext-wiki-news-subwords-300 model... \n')
 		model = api.load('fasttext-wiki-news-subwords-300')
-	vectors = model.wv.vectors
-	vocab = model.wv.vocab
+	else:
+		print('Unable to find the given model name for embeddings:', args['--embedding-type'])
+	#vectors = model.wv.vectors
+	#vocab = model.wv.vocab
+	model.wv['<eos>'] = np.zeros((100,))
+	model.wv['UNK'] = np.zeros((100,))
 
-	input_size = vectors.shape[1]
+	word_to_freq = dict()
+	for wordlist in sentencelist:
+		for word in wordlist:
+			if word in word_to_freq.keys():
+				word_to_freq[word] += 1
+			else: 
+				word_to_freq[word] = 1
+	vocab_words = sorted(list(word_to_freq.keys()), key=lambda k: word_to_freq[k], reverse=True)
+	word_to_idx = { word:idx for idx, word in enumerate(vocab_words, start=3) }
+	#word_to_idx['<pad>'] = 0
+	word_to_idx['UNK'] = 1
+	word_to_idx['<eos>'] = 2
+	idx_to_word = { idx:word for word, idx in word_to_idx.items() }
+		
+	embedding_size = model.wv.vectors.shape[1]
 	
-	np.random.seed(input_size)
-	pretrained = np.insert(vectors, 0, np.random.uniform(vectors.min(),vectors.max(),input_size), axis=0)
-	pretrained = np.insert(pretrained, 0, np.zeros(input_size), axis=0)
+#	np.random.seed(embedding_size)
+#	pretrained = np.insert(vectors, 0, np.random.uniform(vectors.min(),vectors.max(),embedding_size), axis=0)
+#	pretrained = np.insert(pretrained, 0, np.zeros(embedding_size), axis=0)
 
+	#word_to_idx = {word:idx for idx,word in enumerate(vocab, start=2)}
+	
 	# substituing words with ids
-	word_to_idx = {word:idx for idx,word in enumerate(vocab, start=2)}
 	input_embeddings = []
 	for wordlist in sentencelist:
 		input_embeddings.append( list(map(lambda word: word_to_idx[word] if word in word_to_idx else 1, wordlist)) )
+
+	pretrained = np.zeros(shape=(len(word_to_idx)+3,embedding_size))
+	for idx, word in idx_to_word.items():
+		if word in model.wv.vocab:
+			pretrained[idx] = model.wv[word]
+		else:
+			pretrained[idx] = model.wv['UNK']
 
 	# padding zeros into (shorter) embeddings
 	sent_embed_size = max([len(wordlist) for wordlist in sentencelist])
@@ -124,7 +157,13 @@ def generate_kfolds(args, dataset, device):
 	return fold_trainval_dataloaders
 
 
-
+def simple_preprocessing(sentence):
+	sentence = sentence.lower()
+	sentence = re.sub(r'[!]+', '[ ! ]', sentence)
+	sentence = re.sub(r'[?]+', '[ ? ]', sentence)
+	sentence = re.sub(r'[,]+', '[ , ]', sentence)
+	sentence = re.sub(r'[.]+', '[ . ]', sentence)
+	return sentence.strip()
 
 
 
