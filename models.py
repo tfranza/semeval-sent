@@ -29,8 +29,8 @@ class Baseline(nn.Module):
 
         self.embedding_layer = nn.Embedding.from_pretrained(embeddings)
         self.lstm = nn.LSTM(embedding_size, hidden_size, batch_first=True)
-        self.dropout = nn.Dropout(p=0.2)
         self.fc = nn.Linear(hidden_size, num_classes)
+        self.dropout = nn.Dropout(p=0.2)
         
         self.loss_fn = nn.CrossEntropyLoss(reduction='sum')
         
@@ -38,8 +38,8 @@ class Baseline(nn.Module):
         x = self.embedding_layer(data_input)
         x, (hidden_state, _) = self.lstm(x)
         hidden_state.squeeze(0)
-        x = self.dropout(x)
         x = self.fc(x)
+        x = self.dropout(x)
         return x.squeeze()
 
     @property

@@ -67,7 +67,7 @@ def generate_embeddings(args, sentencelist):
 	#vectors = model.wv.vectors
 	#vocab = model.wv.vocab
 	model.wv['<eos>'] = np.zeros((100,))
-	model.wv['UNK'] = np.zeros((100,))
+	model.wv['<unk>'] = np.zeros((100,))
 
 	word_to_freq = dict()
 	for wordlist in sentencelist:
@@ -79,7 +79,7 @@ def generate_embeddings(args, sentencelist):
 	vocab_words = sorted(list(word_to_freq.keys()), key=lambda k: word_to_freq[k], reverse=True)
 	word_to_idx = { word:idx for idx, word in enumerate(vocab_words, start=3) }
 	#word_to_idx['<pad>'] = 0
-	word_to_idx['UNK'] = 1
+	word_to_idx['<unk>'] = 1
 	word_to_idx['<eos>'] = 2
 	idx_to_word = { idx:word for word, idx in word_to_idx.items() }
 		
@@ -101,11 +101,14 @@ def generate_embeddings(args, sentencelist):
 		if word in model.wv.vocab:
 			pretrained[idx] = model.wv[word]
 		else:
-			pretrained[idx] = model.wv['UNK']
+			pretrained[idx] = model.wv['<unk>']
 
 	# padding zeros into (shorter) embeddings
 	sent_embed_size = max([len(wordlist) for wordlist in sentencelist])
 	input_embeddings = list(map(lambda sent: np.pad(sent,(0,sent_embed_size-len(sent))), input_embeddings))
+
+
+	print(pretrained.shape)
 	return pretrained, input_embeddings
 
 def generate_kfolds(args, dataset, device):
@@ -159,10 +162,11 @@ def generate_kfolds(args, dataset, device):
 
 def simple_preprocessing(sentence):
 	sentence = sentence.lower()
-	sentence = re.sub(r'[!]+', '[ ! ]', sentence)
-	sentence = re.sub(r'[?]+', '[ ? ]', sentence)
-	sentence = re.sub(r'[,]+', '[ , ]', sentence)
-	sentence = re.sub(r'[.]+', '[ . ]', sentence)
+	sentence = re.sub(r'[!]+', ' ! ', sentence)
+	sentence = re.sub(r'[?]+', ' ? ', sentence)
+	sentence = re.sub(r'[,]+', ' , ', sentence)
+	sentence = re.sub(r'[.]+', ' . ', sentence)
+	sentence = re.sub(r'[ ]+', ' ', sentence)
 	return sentence.strip()
 
 
